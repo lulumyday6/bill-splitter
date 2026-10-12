@@ -42,26 +42,37 @@ function renderSummary(){
  }catch(e){$('audit').textContent=e.message;$('shares').innerHTML='<p class="hint">請完成餐點輸入與分配，再核對金額。</p>'}
 }
 $('shares').onchange=e=>{if(e.target.dataset.paid){const id=Number(e.target.dataset.paid);if(e.target.checked)paid.add(id);else paid.delete(id);renderSummary()}};
-function clearPhoto(){if(photoURL)URL.revokeObjectURL(photoURL);photoURL=null;photo=null;$('photo').value='';$('preview').removeAttribute('src');$('preview').hidden=true;$('recognize').disabled=true;$('clear-photo').hidden=true;$('ocr-text').value='';$('ocr-status').textContent=''}
+let candidates=[],cancelPending=null;
+function clearPhoto(){candidates=[];renderCandidates();if(photoURL)URL.revokeObjectURL(photoURL);photoURL=null;photo=null;$('photo').value='';$('preview').removeAttribute('src');$('preview').hidden=true;$('recognize').disabled=true;$('clear-photo').hidden=true;$('ocr-text').value='';$('ocr-status').textContent=''}
 $('photo').onchange=()=>{const f=$('photo').files[0];if(!f)return;clearPhoto();if(f.size>20*1024*1024){$('ocr-status').textContent='照片超過 20 MB，請縮小後再選擇。';return}photo=f;photoURL=URL.createObjectURL(f);$('preview').src=photoURL;$('preview').hidden=false;$('clear-photo').hidden=false;$('recognize').disabled=false;$('ocr-status').textContent='照片已選擇。按「辨識照片」開始。'};
 $('preview').onerror=()=>{$('ocr-status').textContent='瀏覽器無法讀取這張照片。請改用 JPG、PNG 或 WebP（HEIC 可先轉成 JPG）。';$('recognize').disabled=true};
 $('clear-photo').onclick=clearPhoto;
 function loadOCR(){if(window.Tesseract)return Promise.resolve();return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.min.js';const timer=setTimeout(()=>{s.remove();reject(Error('載入逾時'))},45000);s.onload=()=>{clearTimeout(timer);resolve()};s.onerror=()=>{clearTimeout(timer);s.remove();reject(Error('無法下載辨識工具'))};document.head.append(s)})}
 function setBusy(value){busy=value;$('ocr-language').disabled=value;$('sample-photo').disabled=value;$('recognize').disabled=value||!photo;$('photo').disabled=value;$('clear-photo').disabled=value;$('cancel-ocr').hidden=!value}
-async function cancelOCR(){job++;if(worker){await worker.terminate();worker=null}setBusy(false);$('ocr-status').textContent='已取消辨識，可重試或手動輸入。'}
+async function cancelOCR(){job++;if(cancelPending){cancelPending();cancelPending=null;}if(worker){await worker.terminate();worker=null}setBusy(false);$('ocr-status').textContent='已取消辨識，可重試或手動輸入。'}
 $('cancel-ocr').onclick=cancelOCR;
+
+function renderCandidates(){
+ $('ocr-candidates').hidden=!candidates.length;
+ $('candidate-list').innerHTML=candidates.map((i,n)=>`<article class="item" data-candidate="${n}"><label class="check"><input type="checkbox" data-cfield="selected" ${i.selected?'checked':''}>加入這道餐點</label><div class="item-fields"><label>餐點名稱<input maxlength="100" data-cfield="name" value="${esc(i.name)}"></label><label>數量<input type="number" min="1" step="1" data-cfield="qty" value="${esc(i.qty)}"></label><label>本列小計<input type="number" min="0" step="${digits()?'0.01':'1'}" data-cfield="amount" value="${esc(i.amount)}"></label></div>${i.warnings?.length?`<p class="bad">${esc(i.warnings.join('；'))}</p>`:''}</article>`).join('');
+ candidateTotal();
+}
+function candidateTotal(){const chosen=candidates.filter(i=>i.selected),valid=chosen.every(i=>i.amount!==''&&Number.isFinite(Number(i.amount)));$('candidate-total').textContent=`已選 ${chosen.length} 道${valid?'，小計 '+chosen.reduce((s,i)=>s+Number(i.amount),0).toLocaleString('zh-TW')+' '+$('currency').value:'，尚有金額未填'}。餐名、數量和金額都請對照照片確認。`;}
+$('candidate-list').oninput=e=>{const row=e.target.closest('[data-candidate]');if(!row)return;const field=e.target.dataset.cfield;if(field)candidates[Number(row.dataset.candidate)][field]=field==='selected'?e.target.checked:e.target.value;candidateTotal();};
+function previewCandidates(parsed){candidates=parsed.items.map(i=>({...i,selected:true}));renderCandidates();$('ocr-status').textContent=candidates.length?`辨識出 ${candidates.length} 道候選餐點。請在下方修正後加入分帳；辨識仍可能漏字或讀錯數字。`:'沒有找到餐點。可改用只保留餐點區域的照片，或手動新增。';}
+$('add-candidates').onclick=()=>{try{const chosen=candidates.filter(i=>i.selected);if(!chosen.length)throw Error('請至少勾選一道餐點。');for(const i of chosen){if(!i.name.trim())throw Error('請填寫餐點名稱。');if(!Bill.integer(i.qty,'數量',10000))throw Error('數量至少為 1。');minor(i.amount);}items.push(...chosen.map(({name,qty,amount})=>({name,qty,amount,owners:[],id:nextId++})));candidates=[];renderCandidates();renderItems();changed();$('ocr-status').textContent=`已加入 ${chosen.length} 道餐點，接著勾選由誰分攤。`;}catch(e){$('ocr-status').textContent=e.message;}};
+function localRecognition(blob,ticket){return new Promise(async(resolve,reject)=>{cancelPending=()=>reject(Error("取消"));try{const bitmap=await createImageBitmap(blob),scale=Math.min(1,2400/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);if(ticket!==job){reject(Error('取消'));return;}worker=new Worker('ocr-assets/worker.js?v=receipt-v5-1',{type:'module'});worker.onmessage=({data})=>{if(ticket!==job)return;if(data.status)$('ocr-status').textContent=data.status;if(data.result){cancelPending=null;resolve(data.result);}if(data.error){cancelPending=null;reject(Error(data.error));}};worker.onerror=()=>reject(Error('辨識工具載入失敗'));worker.postMessage({data:pixels.data,width:pixels.width,height:pixels.height},[pixels.data.buffer]);}catch(e){reject(e);}});}
 $('recognize').onclick=async()=>{
- if(!photo||busy)return;const ticket=++job;setBusy(true);$('ocr-status').textContent='下載辨識工具中，照片不會上傳…';let localWorker;let timer;
- try{
- timer=setTimeout(()=>{if(ticket===job){cancelOCR();$('ocr-status').textContent='辨識時間過長，已停止。可縮小照片重試，或手動輸入。'}},180000);
- await loadOCR();if(ticket!==job)return;
- localWorker=await Tesseract.createWorker($('ocr-language').value.split('+'),1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@6.0.0',langPath:'https://tessdata.projectnaptha.com/4.0.0',cacheMethod:'none',logger:m=>{if(ticket===job)$('ocr-status').textContent=m.status==='recognizing text'?`正在辨識文字 ${Math.round((m.progress||0)*100)}%`:'正在準備辨識語言資源…'}});
- if(ticket!==job){await localWorker.terminate();return}worker=localWorker;
- const {data}=await worker.recognize(photo);if(ticket!==job)return;
- $('ocr-text').value=data.text;$('ocr-text').closest('details').open=true;$('ocr-status').textContent=data.text.trim()?'辨識完成。請檢查文字，再按「將文字加入待確認餐點」。':'沒有辨識到文字。請換張清楚的照片，或手動輸入。';
- }catch(e){if(ticket===job)$('ocr-status').textContent='辨識失敗，請確認網路與照片格式後重試；也可直接手動新增餐點。'}finally{clearTimeout(timer);if(localWorker)try{await localWorker.terminate()}catch{}if(ticket===job){worker=null;setBusy(false)}}
+ if(!photo||busy)return;const ticket=++job;setBusy(true);candidates=[];renderCandidates();$('ocr-status').textContent='正在準備辨識工具，照片不會上傳…';let timer;
+ try{timer=setTimeout(()=>{if(ticket===job){cancelOCR();$('ocr-status').textContent='辨識時間過長，已停止。請重試或手動新增。';}},240000);
+ if($('ocr-language').value==='chi_tra+eng'){
+ const result=await localRecognition(photo,ticket);if(ticket!==job)return;previewCandidates(Receipt.fromBoxes(result));
+ }else{
+ await loadOCR();if(ticket!==job)return;const w=await Tesseract.createWorker($('ocr-language').value.split('+'),1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@6.0.0',langPath:'https://tessdata.projectnaptha.com/4.0.0',cacheMethod:'none'});if(ticket!==job){await w.terminate();return}worker=w;const {data}=await w.recognize(photo);if(ticket!==job)return;previewCandidates(Receipt.parse(data.text));
+ }
+ }catch(e){if(ticket===job)$('ocr-status').textContent='辨識失敗，請確認網路與照片格式後重試，或手動新增餐點。';}finally{clearTimeout(timer);if(ticket===job){cancelPending=null;if(worker)await worker.terminate();worker=null;setBusy(false);}}
 };
-$('import-text').onclick=()=>{const parsed=Bill.parseReceipt($('ocr-text').value);if(!parsed.items.length){$('ocr-status').textContent='找不到可匯入的餐點。請以「餐點名稱 金額」逐行輸入，或手動新增。';return}if(!confirm(`加入 ${parsed.items.length} 道待確認餐點？最後一個數字會視為該列小計，請對照照片確認。`))return;items.push(...parsed.items.map(i=>({...i,id:nextId++})));renderItems();changed();$('ocr-status').textContent=`已加入 ${parsed.items.length} 道餐點，略過 ${parsed.skipped} 行。請檢查是否漏項、重複，以及數量和小計是否正確。`};
+$('import-text').onclick=()=>previewCandidates(Receipt.parse($('ocr-text').value));
 $('reset').onclick=async()=>{if(!confirm('清除本次照片、餐點、人員與收款紀錄？此操作無法復原。'))return;if(busy)await cancelOCR();clearPhoto();people=[{id:1,name:'我'},{id:2,name:'同事'}];payer=1;items=[];paid.clear();$('discount').value='0';$('receipt-total').value='';$('item-service').checked=false;$('new-person').value='';renderPeople();renderItems();changed()};
 window.addEventListener('beforeunload',e=>{if(items.length||photo){e.preventDefault();e.returnValue=''}});
 equalRender();renderPeople();renderItems();renderSummary();

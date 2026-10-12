@@ -17,3 +17,9 @@ id_ed25519*
 .aws/
 .azure/
 .config/
+
+# Private local OCR experiments and receipt data
+.local-qa/
+
+node_modules/
+*.log
