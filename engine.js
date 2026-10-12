@@ -19,7 +19,7 @@ function calculate(people,items,payer,service,discount){
 function parseReceipt(text){
  const items=[];let skipped=0;
  for(const raw of text.normalize('NFKC').split(/\r?\n/)){
- const line=raw.trim();if(!line)continue;
+ const line=raw.trim().replace(/([\p{Script=Han}])\s+(?=[\p{Script=Han}])/gu,'$1');if(!line)continue;
  if(/合計|總計|小計|服務|折扣|優惠|找零|現金|信用|應付|實付|統編|電話|地址|收據|發票|日期|時間|桌號|單號|tax|total|cash|change|tel|visa|mastercard/i.test(line)||/\d{2,4}[\/-]\d{1,2}[\/-]\d{1,2}|https?:|@/.test(line)){skipped++;continue;}
  const m=line.match(/^(.*?)\s*(?:NT\$|\$|￥|¥)?\s*(-?\d[\d,]*(?:\.\d{1,2})?)\s*(?:元)?$/i);
  if(!m||!/[\p{L}]/u.test(m[1])){skipped++;continue;}

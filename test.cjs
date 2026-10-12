@@ -11,3 +11,4 @@ for(const i of [item(-1,[1]),item(1.5,[1]),item(20,[]),item(20,[9]),item(10,[1],
 assert.throws(()=>B.calculate(p,[item(10,[1])],1,false,11));
 const parsed=B.parseReceipt('牛肉麵 180\n水餃 2 120\n合計 300\n服務費 30\n電話 0912345678');assert.equal(parsed.items.length,2);assert.equal(parsed.items[1].qty,'2');assert.equal(parsed.items[1].amount,'120');assert.equal(parsed.skipped,3);
 console.log('PASS: equal split, shared dishes, proportional fee/discount, exact rational accumulation, 900 sum checks, invalid input, receipt parser.');
+assert.equal(B.parseReceipt('牛 肉 麵 180\n合 計 180\n服 務 費 18').items.length,1);
