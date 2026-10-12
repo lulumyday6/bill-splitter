@@ -1,62 +1,13 @@
 <!doctype html>
-<html lang="zh-Hant">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; form-action 'none'">
-<title>聚餐分帳器</title>
-<style>
-:root{font-family:system-ui,"Microsoft JhengHei",sans-serif;color:#243d36;background:#f5f3ed;font-synthesis:none}*{box-sizing:border-box}body{margin:0;padding:42px 20px}main{max-width:800px;margin:auto}.eyebrow{font-size:13px;letter-spacing:3px;color:#667d70}h1{font-size:clamp(30px,6vw,44px);margin:12px 0;color:#2563eb}header p{color:#63736b;line-height:1.7;margin-bottom:28px}.layout{display:grid;grid-template-columns:1fr 1fr;gap:20px}.card{background:#fff;border:1px solid #e0e5dc;border-radius:24px;padding:28px}label{display:block;font-weight:650;margin-bottom:10px}.field{margin-bottom:24px}input[type=number]{width:100%;border:1px solid #b5c4ba;border-radius:12px;padding:14px;font:inherit;font-size:21px;background:#fcfdfb;color:#243d36}input:focus-visible,button:focus-visible{outline:3px solid #d49a3a;outline-offset:3px}.toggle{display:flex;align-items:center;gap:12px;cursor:pointer;font-weight:500;line-height:1.6}input[type=checkbox]{width:22px;height:22px;accent-color:#285f49;flex-shrink:0}button{width:100%;border:0;border-radius:12px;padding:16px;background:#285f49;color:white;font:inherit;font-weight:700;cursor:pointer;margin-top:12px}button:hover{background:#1c4836}.result{background:#eaf0e6}.tag{font-size:13px;color:#516b59}.amount{font-size:42px;font-weight:750;margin:8px 0}.amount span{font-size:18px;font-weight:500}.other{border-top:1px solid #ccd8c6;padding-top:20px;margin-top:20px;font-size:18px}.other strong{font-size:27px}.note{font-size:14px;line-height:1.7;color:#556c5a}.breakdown{margin:22px 0 0;border-top:1px solid #ccd8c6;padding-top:12px}.row{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin:10px 0}.total{font-weight:700}.check{font-size:13px;background:#fff9e9;padding:12px;border-radius:10px;line-height:1.7;margin-top:18px}.error{color:#a43222;font-size:14px;line-height:1.6}footer{font-size:12px;color:#6f7c72;text-align:center;margin:24px 0;line-height:1.8}[hidden]{display:none!important}@media(max-width:620px){body{padding:26px 16px}.layout{grid-template-columns:1fr}.card{padding:24px}header p{margin-bottom:20px}}
-</style>
-</head>
-<body>
-<main>
-<header><div class="eyebrow">一起吃飯，輕鬆分帳</div><h1>聚餐分帳器</h1><p>零頭由付錢的人負擔，每一元都算得剛剛好。</p></header>
-<div class="layout">
-<form class="card" id="form" novalidate autocomplete="off">
-<div class="field"><label for="amount">餐費總金額（元）</label><input id="amount" type="number" inputmode="numeric" min="0" max="1000000000" step="1" value="1000" required aria-describedby="amount-help"><div id="amount-help" class="note">請填未加服務費的整數金額。</div></div>
-<div class="field"><label for="people">聚餐人數（包含付錢的人）</label><input id="people" type="number" inputmode="numeric" min="1" max="10000" step="1" value="3" required></div>
-<label class="toggle"><input id="service" type="checkbox">加收 10% 服務費</label><div class="note">服務費四捨五入至整數元。</div>
-<button type="submit">計算每人金額</button><p class="error" id="error" role="alert" hidden></p>
-</form>
-<section class="card result" aria-live="polite" aria-atomic="true" aria-label="分帳結果">
-<div id="result"></div>
-</section>
-</div>
-<footer>完全離線使用 · 不需登入 · 不儲存輸入資料<br>下次直接開啟這個網頁檔，就能再次分帳。</footer>
-</main>
-<script>
-'use strict';
-function splitBill(amount, people, service) {
-  if (!Number.isSafeInteger(amount) || amount < 0 || amount > 1000000000) throw new Error('總金額請輸入 0～1,000,000,000 元的整數。');
-  if (!Number.isSafeInteger(people) || people < 1 || people > 10000) throw new Error('人數請輸入 1～10,000 的整數，並包含付錢的人。');
-  const fee = service ? Math.floor((amount + 5) / 10) : 0;
-  const total = amount + fee;
-  const each = Math.floor(total / people);
-  const remainder = total % people;
-  return {amount, people, fee, total, each, remainder, payer: each + remainder};
-}
-const form = document.getElementById('form');
-const result = document.getElementById('result');
-const error = document.getElementById('error');
-const money = n => n.toLocaleString('zh-TW');
-function render() {
-  try {
-    const rawAmount = document.getElementById('amount').value.trim();
-    const rawPeople = document.getElementById('people').value.trim();
-    if (!rawAmount || !rawPeople) throw new Error('請填寫總金額與人數。');
-    const r = splitBill(Number(rawAmount), Number(rawPeople), document.getElementById('service').checked);
-    error.hidden = true;
-    result.innerHTML = `<div class="tag">付錢的人</div><div class="amount">${money(r.payer)} <span>元</span></div><div class="note">${r.remainder ? `已包含除不盡的零頭 ${money(r.remainder)} 元` : '沒有零頭，剛好分配'}</div><div class="other">${r.people > 1 ? `其他 ${money(r.people - 1)} 人各 <strong>${money(r.each)}</strong> 元` : '只有 1 人，由你支付全部金額'}</div><div class="breakdown"><div class="row"><span>餐費總金額</span><span>${money(r.amount)} 元</span></div><div class="row"><span>服務費${document.getElementById('service').checked ? '（10%，四捨五入）' : '（未加收）'}</span><span>${money(r.fee)} 元</span></div><div class="row total"><span>應付總額</span><span>${money(r.total)} 元</span></div></div><div class="check">合計核對：${money(r.payer)}${r.people > 1 ? ` ＋ ${money(r.each)} × ${money(r.people - 1)}` : ''} ＝ ${money(r.total)} 元 ✓</div>`;
-  } catch (e) {
-    error.textContent = e.message;
-    error.hidden = false;
-    result.innerHTML = '<p class="note">請修正左方或上方的輸入，再查看分帳結果。</p>';
-  }
-}
-form.addEventListener('submit', e => { e.preventDefault(); render(); });
-form.addEventListener('input', render);
-render();
-</script>
-</body>
-</html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self' https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'"><title>聚餐分帳器</title><link rel="stylesheet" href="style.css"></head><body><main>
+<header><span class="eyebrow">一起吃飯，輕鬆分帳</span><h1>聚餐分帳器</h1><p>平分一桌好菜，或各付各的。每一元都有著落。</p></header>
+<nav aria-label="分帳方式"><button id="equal-tab" class="active" aria-pressed="true">平均分帳</button><button id="items-tab" aria-pressed="false">依餐點分帳</button></nav>
+<section id="equal-panel" class="grid"><div class="card"><h2>這一餐多少錢？</h2><label>餐費總金額（未加服務費）<input id="amount" type="number" min="0" step="1" value="1000"></label><label>人數（含付錢的人）<input id="people" type="number" min="1" step="1" value="3"></label><label class="check"><input id="service" type="checkbox">加收 10% 服務費</label><p class="hint">服務費四捨五入至整數元，零頭由付錢的人負擔。</p></div><div id="equal-result" class="card green" aria-live="polite"></div></section>
+<section id="items-panel" hidden>
+<div class="notice">免登入 · 照片只在你的裝置內辨識 · 本次資料不儲存。重新整理或關閉頁面後，分帳與收款紀錄會清除。</div>
+<div class="grid"><section class="card"><h2>01　讀取收據 <small>也可以直接手動輸入</small></h2><p class="hint">拍正、拍清楚，保留完整品項與價格。第一次辨識需連網下載免費辨識工具，手機可能需等候一會兒。</p><label class="upload">選擇／拍攝收據照片<input id="photo" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif"></label><img id="preview" hidden alt="本次收據預覽"><div class="actions"><button id="recognize" disabled>辨識照片</button><button id="sample-photo" class="secondary">試用範例收據</button><button id="cancel-ocr" class="secondary" hidden>取消辨識</button><button id="clear-photo" class="secondary" hidden>移除照片與文字</button></div><p id="ocr-status" role="status"></p><details><summary>查看／修正辨識文字</summary><label>一行一個餐點，金額放最後<textarea id="ocr-text" rows="8" placeholder="牛肉麵 180&#10;水餃 120"></textarea></label><button id="import-text" class="secondary">將文字加入待確認餐點</button><p class="hint">自動略過疑似總計與店家資訊；仍可能漏辨識或錯配價格。請逐項核對，匯入不會覆蓋現有餐點。</p></details></section>
+<section class="card"><h2>02　誰一起吃？</h2><p class="hint">可用代號。付錢的人也要包含在內。</p><div class="inline"><input id="new-person" maxlength="30" placeholder="姓名或代號" aria-label="新增姓名或代號"><button id="add-person">新增</button></div><div id="participants"></div><label>付錢的人<select id="payer"></select></label><p class="hint">修改餐點、成員或費用後，已收款標記會清除，請重新核對。</p></section></div>
+<section class="card"><div class="heading"><h2>03　餐點由誰分攤？</h2><button id="add-item" class="secondary">＋ 手動新增餐點</button></div><p class="hint">「小計」填這一列的總價，數量只作紀錄，不會再乘一次。同一道菜勾選多人即平均分攤；相同餐點各吃一份時，可拆成不同列。</p><div id="items"></div><p id="unassigned" role="status"></p></section>
+<div class="grid"><section class="card"><h2>04　核對帳單</h2><label class="check"><input id="item-service" type="checkbox">另外加收 10% 服務費</label><p class="hint">若輸入的餐點價格已包含服務費，請勿重複勾選。服務費按各人餐費比例分攤。</p><label>整張帳單折扣（元，沒有填 0）<input id="discount" type="number" min="0" step="1" value="0"></label><p class="hint">折扣按餐費比例分攤；服務費以折扣後餐費計算。店家計法不同時，請調整輸入並確認最終總額。</p><label>收據最終應付總額（含服務費、扣除折扣）<input id="receipt-total" type="number" min="0" step="1" placeholder="請對照收據填寫"></label><label class="check"><input id="confirmed" type="checkbox">我已核對所有餐點、數量與小計</label><div id="audit" aria-live="polite"></div></section><section class="card green"><h2>每人應付與收款</h2><div id="shares" aria-live="polite"></div></section></div>
+<button id="reset" class="secondary">清除本次餐點分帳</button>
+</section><footer>不需帳號、不上傳收據、不保存個人資料。辨識僅協助輸入，請以實際帳單為準。</footer></main><script src="engine.js"></script><script src="app.js"></script></body></html>
