@@ -7,3 +7,10 @@ r=R.fromBoxes({resizedImageWidth:1000,texts:[box('[主餐]烤雞×10',250,100,38
 console.log('PASS: structured receipts, zero-price dishes, wrapped names, overlapping numeric boxes, order cards, metadata exclusions.');
 
 r=R.fromBoxes({texts:[box('範例收據 SAMPLE',20,20,360),box('湯麵180',20,100,280),box('餃子120',20,180,280),box('茶60',20,260,280),box('合計360',20,340,280)]});assert.equal(r.items.length,3);assert.equal(r.items.reduce((s,i)=>s+Number(i.amount),0),360);console.log('PASS: single-box dish and amount rows.');
+r=R.parse('薯條 2 100 200\n紅茶×2 120\n湯麵NT$180\n特調300');assert.deepEqual(r.items.map(i=>[i.name,i.qty,i.amount]),[['薯條','2','200'],['紅茶','2','120'],['湯麵','1','180'],['特調300','1','']]);assert.equal(R.suggest('特調300').amount,'300');assert.equal(R.suggest('一般餐名'),null);
+r=R.fromBoxes({texts:[box('薯條 2 100 200',10,10,400)]});assert.equal(r.items[0].qty,'2');assert.equal(r.items[0].amount,'200');
+r=R.fromBoxes({texts:[box('薯條',10,10),box('2 200',250,10)]});assert.equal(r.items[0].qty,'2');assert.equal(r.items[0].amount,'200');
+r=R.fromBoxes({texts:[box('薯條 200',10,10,180),box('200',250,10)]});assert.equal(r.items[0].name,'薯條');assert.equal(r.items[0].amount,'200');
+r=R.fromBoxes({texts:[box('特調300',10,10,180),box('300',250,10)]});assert.equal(r.items[0].name,'特調300');assert.equal(r.items[0].amount,'300');
+console.log('PASS: inline quantity/unit/total, currency prefix, combined numeric boxes, duplicate price removal, numeric dish names.');
+r=R.fromBoxes({texts:[box('名稱',10,10),box('數量',200,10),box('單價',350,10),box('小計',500,12),box('薯條',10,90),box('2',200,90),box('100',350,90),box('NT$200',500,90),box('總計',10,180)]});assert.deepEqual(r.items.map(i=>[i.name,i.qty,i.amount]),[['薯條','2','200']]);console.log('PASS: four spatial columns, offset subtotal header, NT$ amount box.');

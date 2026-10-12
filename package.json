@@ -1,5 +1,15 @@
 {
-  "name": "bill-splitter", "private": true,
-  "scripts": {"build:ocr": "node ocr-src/build.mjs", "test": "node test.cjs && node test-app.cjs && node test-receipt.cjs"},
-  "devDependencies": {"@gutenye/ocr-browser": "1.4.8", "@gutenye/ocr-common": "1.4.9", "@techstark/opencv-js": "4.9.0-release.3", "onnxruntime-web": "1.30.0", "esbuild": "0.25.12"}
+  "name": "bill-splitter",
+  "private": true,
+  "scripts": {
+    "build:ocr": "node ocr-src/build.mjs",
+    "test": "node test.cjs && node test-app.cjs && node test-receipt.cjs && node test-pricing.cjs"
+  },
+  "devDependencies": {
+    "@gutenye/ocr-browser": "1.4.8",
+    "@gutenye/ocr-common": "1.4.9",
+    "@techstark/opencv-js": "4.9.0-release.3",
+    "onnxruntime-web": "1.30.0",
+    "esbuild": "0.25.12"
+  }
 }
