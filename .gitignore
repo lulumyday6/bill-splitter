@@ -1,0 +1,19 @@
+# Private configuration and credentials must never be committed.
+.env
+.env.*
+*.env
+secrets.json
+secrets.*
+*secret*
+*credential*
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+id_rsa*
+id_ed25519*
+.ssh/
+.aws/
+.azure/
+.config/
