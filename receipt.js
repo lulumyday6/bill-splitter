@@ -54,6 +54,7 @@ function fromBoxes(result){
   if(x){const tail=x.text.replace(/^[x×*]\s*/i,'');const separate=tail.match(/^(\d+)\s+(\d[\d,]*(?:\.\d{1,2})?)$/);if(separate){qty=separate[1];amount=numeric(separate[2]);}else if(nums.length){qty=tail.replace(/\s/g,'');const price=nums.at(-1);if(qty.length>1&&x.right>price.left&&price.text.startsWith(qty.at(-1))){qty=qty.slice(0,-1);warnings.push('數量與價格區域重疊，請確認');}}else if(/^\d{2,}$/.test(tail)){qty=tail[0];amount=numeric(tail.slice(1));warnings.push('數量與價格黏在一起，請對照照片');}else{qty=tail;}}
   if(nums.length){amount=numeric(nums.at(-1).text);if(nums.length>1&&!x)qty=numeric(nums.at(-2).text);else if(!x&&!suffix)warnings.push('數量未辨識，暫填 1');}
   if(!amount&&suffix&&qty.length>1){amount=numeric(qty.slice(1));qty=qty[0];warnings.push('數量與價格黏在一起，請對照照片');}
+  if(amount===''&&!x&&!suffix){const inline=name.match(/^(.*?[\p{L}])\s*(?:NT\$|[$¥￥])?\s*(\d[\d,]*(?:\.\d{1,2})?)\s*(?:元)?$/u);if(inline){name=inline[1];amount=numeric(inline[2]);warnings.push('餐名與價格同列，請核對數量和金額');}}
   if(amount!==''||x||suffix){if(!amount)warnings.push('金額未辨識，請補填');items.push(item(name,qty,amount,warnings));}
   else if(items.length&&nameOK(name)&&name.length<=8&&/\[/.test(items.at(-1).name)&&g.y-groups[Math.max(0,groups.indexOf(g)-1)].y<g.h*1.5){items.at(-1).name+=name;}
  }
